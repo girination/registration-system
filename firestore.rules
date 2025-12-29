@@ -186,7 +186,7 @@ service cloud.firestore {
      * @principle Enforces document ownership for writes while allowing general read access.
      */
     match /personnel/{personnelId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && resource != null && isOwner(resource.data.userId) && isUserIdImmutable();
       allow delete: if isSignedIn() && resource != null && isOwner(resource.data.userId);
@@ -214,7 +214,7 @@ service cloud.firestore {
      * @principle Public read with protected writes. Writes are currently disabled pending schema update.
      */
     match /visitors/{visitorId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       // CRITICAL: Cannot implement owner-only writes. The 'Visitor' entity is missing an 'ownerId' or 'creatorId' field.
       allow create: if true; // TODO: Add owner validation once the schema is updated with an ownership field.
       allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
@@ -321,3 +321,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
