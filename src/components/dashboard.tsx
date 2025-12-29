@@ -31,6 +31,7 @@ import {
   Clock,
   User,
   Loader2,
+  Users,
 } from 'lucide-react';
 import { FortressGateIcon } from '@/components/icons';
 import VisitorRegistrationForm from '@/components/visitor-registration-form';
@@ -39,6 +40,7 @@ import { useFirestore, useCollection, useMemoFirebase, useAuth, useUser, updateD
 import { collection, doc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 const getImage = (id: string): ImagePlaceholder | undefined => PlaceHolderImages.find(img => img.id === id);
 
@@ -140,6 +142,10 @@ export default function Dashboard() {
           <FortressGateIcon className="h-6 w-6 text-primary" />
           <h1>FortressGate</h1>
         </div>
+        <nav className="ml-8 flex items-center gap-4 text-sm font-medium">
+          <Link href="/dashboard" className="text-primary">Dashboard</Link>
+          <Link href="/personnel" className="text-muted-foreground transition-colors hover:text-foreground">Personnel</Link>
+        </nav>
         <div className="ml-auto flex items-center gap-4">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -159,6 +165,10 @@ export default function Dashboard() {
               <DropdownMenuItem onClick={() => router.push('/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/personnel')}>
+                <Users className="mr-2 h-4 w-4" />
+                <span>Personnel</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
@@ -285,6 +295,8 @@ export default function Dashboard() {
         <VisitorRegistrationForm
           open={showRegistrationForm}
           onOpenChange={setShowRegistrationForm}
+          personnelData={personnelData || []}
+          isLoadingPersonnel={isLoadingPersonnel}
         />
       </main>
     </div>

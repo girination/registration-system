@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -34,7 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Camera, User, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useFirestore, addDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp } from 'firebase/firestore';
 
 
@@ -63,20 +63,21 @@ const formSchema = z.object({
 type VisitorRegistrationFormProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  personnelData: Personnel[];
+  isLoadingPersonnel: boolean;
 };
 
 export default function VisitorRegistrationForm({
   open,
   onOpenChange,
+  personnelData,
+  isLoadingPersonnel,
 }: VisitorRegistrationFormProps) {
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
   const firestore = useFirestore();
-
-  const personnelQuery = useMemoFirebase(() => firestore ? collection(firestore, 'personnel') : null, [firestore]);
-  const { data: personnelData, isLoading: isLoadingPersonnel } = useCollection<Personnel>(personnelQuery);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
