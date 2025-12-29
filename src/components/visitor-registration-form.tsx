@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -34,8 +34,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Camera, User, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { personnelData } from '@/lib/data';
-import type { Personnel } from '@/lib/data';
+import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+
+
+// This should match the type in dashboard.tsx and your data structure
+type Personnel = {
+  id: string;
+  name: string;
+  rank: string;
+  facility: string;
+  block: string;
+  room: string;
+};
+
 
 const formSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
@@ -60,6 +72,11 @@ export default function VisitorRegistrationForm({
   const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  
+  const firestore = useFirestore();
+
+  const personnelQuery = useMemoFirebase(() => collection(firestore, 'personnel'), [firestore]);
+  const { data: personnelData, isLoading: isLoadingPersonnel } = useCollection<Personnel>(personnelQuery);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,7 +90,7 @@ export default function VisitorRegistrationForm({
     },
   });
 
-  const selectedPersonnel = personnelData.find(p => p.id === form.watch('personnelId'));
+  const selectedPersonnel = personnelData?.find(p => p.id === form.watch('personnelId'));
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -132,14 +149,33 @@ export default function VisitorRegistrationForm({
   };
   
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    // Here you would typically send the data to your backend
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast({
-      title: 'Visitor Registered',
-      description: `${values.fullName} has been successfully registered.`,
-    });
-    onOpenChange(false);
+    try {
+      const visitorsColRef = collection(firestore, 'visitors');
+      // Here you would typically send the data to your backend
+      await addDocumentNonBlocking(visitorsColRef, {
+        name: values.fullName,
+        visitingPersonnelId: values.personnelId,
+        // Mocking some data that is not in the form
+        photoId: `visitor-${Math.floor(Math.random() * 3) + 1}`,
+        timeIn: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        status: 'On-site',
+        ...values
+      });
+
+      toast({
+        title: 'Visitor Registered',
+        description: `${values.fullName} has been successfully registered.`,
+      });
+      onOpenChange(false);
+      form.reset();
+    } catch (error) {
+      console.error("Error registering visitor:", error)
+      toast({
+        variant: "destructive",
+        title: "Registration Failed",
+        description: "An error occurred while registering the visitor.",
+      });
+    }
   }
 
   return (
@@ -214,12 +250,12 @@ export default function VisitorRegistrationForm({
                   <FormLabel>Person to Visit</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select from personnel directory" />
+                      <SelectTrigger disabled={isLoadingPersonnel}>
+                        <SelectValue placeholder={isLoadingPersonnel ? "Loading personnel..." : "Select from personnel directory"} />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {personnelData.map((p) => (
+                      {personnelData?.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {p.name} ({p.rank})
                         </SelectItem>

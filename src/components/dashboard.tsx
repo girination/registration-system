@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -29,29 +29,61 @@ import {
   Building,
   Clock,
   User,
+  Loader2,
 } from 'lucide-react';
 import { FortressGateIcon } from '@/components/icons';
 import VisitorRegistrationForm from '@/components/visitor-registration-form';
-import { currentVisitorsData, personnelData } from '@/lib/data';
-import type { Visitor, Personnel } from '@/lib/data';
 import { PlaceHolderImages, type ImagePlaceholder } from '@/lib/placeholder-images';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc } from 'firebase/firestore';
 
 const getImage = (id: string): ImagePlaceholder | undefined => PlaceHolderImages.find(img => img.id === id);
+
+// Define types based on your Firestore data structure
+type Visitor = {
+  id: string;
+  name: string;
+  photoId: string;
+  visitingPersonnelId: string;
+  timeIn: string;
+  status: 'On-site' | 'Overstaying';
+};
+
+type Personnel = {
+  id: string;
+  name: string;
+  rank: string;
+  department: string;
+  block: string;
+  room: string;
+};
+
 
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  
+  const firestore = useFirestore();
+
+  const personnelQuery = useMemoFirebase(() => collection(firestore, 'personnel'), [firestore]);
+  const { data: personnelData, isLoading: isLoadingPersonnel } = useCollection<Personnel>(personnelQuery);
+
+  const visitorsQuery = useMemoFirebase(() => collection(firestore, 'visitors'), [firestore]);
+  const { data: currentVisitorsData, isLoading: isLoadingVisitors } = useCollection<Visitor>(visitorsQuery);
 
   const getPersonnelById = (id: string): Personnel | undefined =>
-    personnelData.find((p) => p.id === id);
+    personnelData?.find((p) => p.id === id);
 
-  const filteredVisitors = currentVisitorsData.filter(
-    (visitor) =>
-      visitor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      getPersonnelById(visitor.visitingPersonnelId)?.name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase())
-  );
+  const filteredVisitors = useMemo(() => {
+    if (!currentVisitorsData) return [];
+    return currentVisitorsData.filter(
+      (visitor) =>
+        visitor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        getPersonnelById(visitor.visitingPersonnelId)?.name
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase())
+    )
+  }, [currentVisitorsData, searchQuery, personnelData]);
   
   const guardAvatar = getImage('guard-avatar');
 
@@ -114,7 +146,7 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <CardTitle>Current Visitors ({filteredVisitors.length})</CardTitle>
+            <CardTitle>Current Visitors ({isLoadingVisitors ? 0 : filteredVisitors.length})</CardTitle>
             <div className="relative w-full max-w-sm">
               <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
               <Input
@@ -127,7 +159,11 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            {filteredVisitors.length > 0 ? (
+            {isLoadingVisitors || isLoadingPersonnel ? (
+              <div className="flex justify-center items-center h-48">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : filteredVisitors.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {filteredVisitors.map((visitor) => {
                   const personnel = getPersonnelById(visitor.visitingPersonnelId);
