@@ -35,7 +35,7 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2, Camera, User, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, serverTimestamp } from 'firebase/firestore';
 
 
 // This should match the type in dashboard.tsx and your data structure
@@ -75,7 +75,7 @@ export default function VisitorRegistrationForm({
   
   const firestore = useFirestore();
 
-  const personnelQuery = useMemoFirebase(() => collection(firestore, 'personnel'), [firestore]);
+  const personnelQuery = useMemoFirebase(() => firestore ? collection(firestore, 'personnel') : null, [firestore]);
   const { data: personnelData, isLoading: isLoadingPersonnel } = useCollection<Personnel>(personnelQuery);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -149,16 +149,24 @@ export default function VisitorRegistrationForm({
   };
   
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!firestore) {
+      toast({
+        variant: "destructive",
+        title: "Database Error",
+        description: "Firestore is not available.",
+      });
+      return;
+    }
     try {
       const visitorsColRef = collection(firestore, 'visitors');
       // Here you would typically send the data to your backend
-      await addDocumentNonBlocking(visitorsColRef, {
+      addDocumentNonBlocking(visitorsColRef, {
         name: values.fullName,
         visitingPersonnelId: values.personnelId,
-        // Mocking some data that is not in the form
         photoId: `visitor-${Math.floor(Math.random() * 3) + 1}`,
         timeIn: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
         status: 'On-site',
+        createdAt: serverTimestamp(),
         ...values
       });
 

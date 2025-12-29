@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
@@ -34,8 +35,10 @@ import {
 import { FortressGateIcon } from '@/components/icons';
 import VisitorRegistrationForm from '@/components/visitor-registration-form';
 import { PlaceHolderImages, type ImagePlaceholder } from '@/lib/placeholder-images';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, useAuth, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
 
 const getImage = (id: string): ImagePlaceholder | undefined => PlaceHolderImages.find(img => img.id === id);
 
@@ -46,7 +49,7 @@ type Visitor = {
   photoId: string;
   visitingPersonnelId: string;
   timeIn: string;
-  status: 'On-site' | 'Overstaying';
+  status: 'On-site' | 'Overstaying' | 'Checked-out';
 };
 
 type Personnel = {
@@ -62,30 +65,73 @@ type Personnel = {
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+  const auth = useAuth();
+  const { toast } = useToast();
   
   const firestore = useFirestore();
 
-  const personnelQuery = useMemoFirebase(() => collection(firestore, 'personnel'), [firestore]);
+  useEffect(() => {
+    if (!isUserLoading && (!user || user.isAnonymous)) {
+      router.push('/login');
+    }
+  }, [user, isUserLoading, router]);
+
+  const personnelQuery = useMemoFirebase(() => firestore ? collection(firestore, 'personnel') : null, [firestore]);
   const { data: personnelData, isLoading: isLoadingPersonnel } = useCollection<Personnel>(personnelQuery);
 
-  const visitorsQuery = useMemoFirebase(() => collection(firestore, 'visitors'), [firestore]);
+  const visitorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'visitors') : null, [firestore]);
   const { data: currentVisitorsData, isLoading: isLoadingVisitors } = useCollection<Visitor>(visitorsQuery);
 
   const getPersonnelById = (id: string): Personnel | undefined =>
     personnelData?.find((p) => p.id === id);
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/');
+    } catch (error) {
+      console.error('Error signing out: ', error);
+      toast({
+        variant: "destructive",
+        title: "Logout Failed",
+        description: "An error occurred while logging out.",
+      });
+    }
+  };
+
+  const handleCheckOut = (visitorId: string, visitorName: string) => {
+    if (!firestore) return;
+    const visitorRef = doc(firestore, 'visitors', visitorId);
+    updateDocumentNonBlocking(visitorRef, { status: 'Checked-out' });
+    toast({
+      title: "Visitor Checked Out",
+      description: `${visitorName} has been successfully checked out.`
+    })
+  };
+
   const filteredVisitors = useMemo(() => {
     if (!currentVisitorsData) return [];
     return currentVisitorsData.filter(
       (visitor) =>
-        visitor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (visitor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         getPersonnelById(visitor.visitingPersonnelId)?.name
           .toLowerCase()
-          .includes(searchQuery.toLowerCase())
+          .includes(searchQuery.toLowerCase())) && visitor.status !== 'Checked-out'
     )
   }, [currentVisitorsData, searchQuery, personnelData]);
   
   const guardAvatar = getImage('guard-avatar');
+
+  if (isUserLoading || !user || user.isAnonymous) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin" />
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40 dark:bg-background">
@@ -106,16 +152,16 @@ export default function Dashboard() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>
-                <p className="font-medium">Officer Daniels</p>
+                <p className="font-medium">{user?.email || "Officer"}</p>
                 <p className="text-xs text-muted-foreground">Gate Guard</p>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/profile')}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Profile</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>
               </DropdownMenuItem>
@@ -138,7 +184,7 @@ export default function Dashboard() {
             <UserPlus className="mr-4 h-8 w-8" />
             Register New Visitor
           </Button>
-          <Button size="lg" variant="secondary" className="h-28 text-lg">
+          <Button size="lg" variant="secondary" className="h-28 text-lg" onClick={() => toast({ title: "Feature not implemented", description: "QR code scanning is coming soon!"})}>
             <QrCode className="mr-4 h-8 w-8" />
             Scan QR Code
           </Button>
@@ -185,6 +231,8 @@ export default function Dashboard() {
                             variant={
                               visitor.status === 'Overstaying'
                                 ? 'destructive'
+                                : visitor.status === 'Checked-out'
+                                ? 'secondary'
                                 : 'default'
                             }
                             className="w-fit"
@@ -213,8 +261,13 @@ export default function Dashboard() {
                         </div>
                       </CardContent>
                       <CardFooter className="mt-auto border-t bg-muted/50 p-2 dark:bg-card">
-                        <Button className="w-full" variant="outline">
-                          Check Out
+                        <Button
+                          className="w-full"
+                          variant="outline"
+                          onClick={() => handleCheckOut(visitor.id, visitor.name)}
+                          disabled={visitor.status === 'Checked-out'}
+                        >
+                          {visitor.status === 'Checked-out' ? 'Checked Out' : 'Check Out'}
                         </Button>
                       </CardFooter>
                     </Card>
