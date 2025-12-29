@@ -101,11 +101,8 @@ service cloud.firestore {
      * @principle Restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
+      allow read, write: if isOwner(userId);
       allow list: if false; // Prevent listing all system users.
-      allow create: if isCreatingOwnUserDocument(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
     }
 
     /**
@@ -116,10 +113,7 @@ service cloud.firestore {
      * @principle Enforces strict ownership for all operations on a user's private subcollection.
      */
     match /users/{userId}/notifications/{notificationId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
     }
 
     /**
@@ -130,10 +124,8 @@ service cloud.firestore {
      * @principle Protects system configuration data from client modification.
      */
     match /roles/{roleId} {
-      allow get, list: if isSignedIn();
-      allow create: if false; // TODO: Implement admin-only access.
-      allow update: if false; // TODO: Implement admin-only access.
-      allow delete: if false; // TODO: Implement admin-only access.
+      allow read: if isSignedIn();
+      allow write: if false; // Admin only
     }
 
     /**
@@ -144,10 +136,8 @@ service cloud.firestore {
      * @principle Protects system configuration data from client modification.
      */
     match /facilities/{facilityId} {
-      allow get, list: if isSignedIn();
-      allow create: if false; // TODO: Implement admin-only access.
-      allow update: if false; // TODO: Implement admin-only access.
-      allow delete: if false; // TODO: Implement admin-only access.
+      allow read: if isSignedIn();
+      allow write: if false; // Admin only
 
       /**
        * @description Stores block information within a facility. Read-only for authenticated users.
@@ -157,10 +147,8 @@ service cloud.firestore {
        * @principle Protects system configuration data from client modification.
        */
       match /blocks/{blockId} {
-        allow get, list: if isSignedIn();
-        allow create: if false; // TODO: Implement admin-only access.
-        allow update: if false; // TODO: Implement admin-only access.
-        allow delete: if false; // TODO: Implement admin-only access.
+        allow read: if isSignedIn();
+        allow write: if false; // Admin only
 
         /**
          * @description Stores room information within a block. Read-only for authenticated users.
@@ -170,10 +158,8 @@ service cloud.firestore {
          * @principle Protects system configuration data from client modification.
          */
         match /rooms/{roomId} {
-          allow get, list: if isSignedIn();
-          allow create: if false; // TODO: Implement admin-only access.
-          allow update: if false; // TODO: Implement admin-only access.
-          allow delete: if false; // TODO: Implement admin-only access.
+          allow read: if isSignedIn();
+          allow write: if false; // Admin only
         }
       }
     }
@@ -186,7 +172,7 @@ service cloud.firestore {
      * @principle Enforces document ownership for writes while allowing general read access.
      */
     match /personnel/{personnelId} {
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && resource != null && isOwner(resource.data.userId) && isUserIdImmutable();
       allow delete: if isSignedIn() && resource != null && isOwner(resource.data.userId);
@@ -200,10 +186,7 @@ service cloud.firestore {
      * @principle Uses a parent document lookup (`get`) to secure a subcollection based on ownership.
      */
     match /personnel/{personnelId}/visits/{visitId} {
-      allow get, list: if isSignedIn() && isPersonnelOwner(personnelId);
-      allow create: if isSignedIn() && isPersonnelOwner(personnelId) && request.resource.data.personnelId == personnelId;
-      allow update: if isSignedIn() && resource != null && isPersonnelOwner(personnelId) && request.resource.data.personnelId == resource.data.personnelId;
-      allow delete: if isSignedIn() && resource != null && isPersonnelOwner(personnelId);
+      allow read, write: if isSignedIn() && isPersonnelOwner(personnelId);
     }
 
     /**
@@ -214,8 +197,8 @@ service cloud.firestore {
      * @principle Allows authenticated users to manage visitor records.
      */
     match /visitors/{visitorId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn();
+      allow read, update: if isSignedIn();
+      allow create: if isSignedIn();
       allow delete: if false; // Deletion can be restricted as needed.
     }
     
@@ -227,11 +210,7 @@ service cloud.firestore {
      * @principle Defaults to secure. The path `/personnel/{personnelId}/visits` should be used for all client operations.
      */
     match /visitors/{visitorId}/visits/{visitId} {
-      allow get: if false;
-      allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow read, write: if false;
     }
 
     /**
@@ -242,7 +221,7 @@ service cloud.firestore {
      * @principle Implements shared access based on roles within the document (approver, host).
      */
     match /approvals/{approvalId} {
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && (request.resource.data.approvedByUserId == request.auth.uid || isPersonnelOwner(request.resource.data.personnelId));
       allow update: if isSignedIn() && resource != null && (isOwner(resource.data.approvedByUserId) || isPersonnelOwner(resource.data.personnelId));
       allow delete: if isSignedIn() && resource != null && isPersonnelOwner(resource.data.personnelId);
@@ -256,10 +235,8 @@ service cloud.firestore {
      * @principle Protects operational data integrity by disallowing client writes.
      */
     match /visits/{visitId}/checkIns/{checkInId} {
-      allow get, list: if isSignedIn();
-      allow create: if false; // Must be created by a trusted device/backend.
-      allow update: if false;
-      allow delete: if false;
+      allow read: if isSignedIn();
+      allow write: if false;
     }
     
     /**
@@ -270,10 +247,8 @@ service cloud.firestore {
      * @principle Protects operational data integrity by disallowing client writes.
      */
     match /visits/{visitId}/checkOuts/{checkOutId} {
-      allow get, list: if isSignedIn();
-      allow create: if false; // Must be created by a trusted device/backend.
-      allow update: if false;
-      allow delete: if false;
+      allow read: if isSignedIn();
+      allow write: if false;
     }
 
     /**
@@ -284,10 +259,8 @@ service cloud.firestore {
      * @principle Protects sensitive system data from client modification.
      */
     match /blacklists/{blacklistId} {
-      allow get, list: if isSignedIn();
-      allow create: if false; // TODO: Implement admin-only access.
-      allow update: if false; // TODO: Implement admin-only access.
-      allow delete: if false; // TODO: Implement admin-only access.
+      allow read: if isSignedIn();
+      allow write: if false; // Admin only
     }
 
     /**
@@ -298,10 +271,8 @@ service cloud.firestore {
      * @principle Protects system configuration data from client modification.
      */
     match /devices/{deviceId} {
-      allow get, list: if isSignedIn();
-      allow create: if false; // TODO: Implement admin-only access.
-      allow update: if false; // TODO: Implement admin-only access.
-      allow delete: if false; // TODO: Implement admin-only access.
+      allow read: if isSignedIn();
+      allow write: if false; // Admin only
     }
 
     /**
@@ -312,10 +283,8 @@ service cloud.firestore {
      * @principle Ensures the integrity and immutability of audit trails.
      */
     match /auditLogs/{auditLogId} {
-      allow get, list: if isSignedIn(); // Or restrict to admins.
-      allow create: if false; // Backend-only operation.
-      allow update: if false; // Logs are immutable.
-      delete: if false; // Logs are immutable.
+      allow read: if isSignedIn(); // Or restrict to admins.
+      allow write: if false;
     }
   }
 }
