@@ -207,18 +207,16 @@ service cloud.firestore {
     }
 
     /**
-     * @description Stores visitor profiles. Readable by any authenticated user.
+     * @description Stores visitor profiles. Readable and writable by any authenticated user.
      * @path /visitors/{visitorId}
      * @allow (get) Any authenticated user can read a visitor's public profile.
-     * @deny (create) Client cannot create a visitor record directly.
-     * @principle Public read with protected writes. Writes are currently disabled pending schema update.
+     * @allow (create) Any authenticated user can create a visitor record.
+     * @principle Allows authenticated users to manage visitor records.
      */
     match /visitors/{visitorId} {
       allow get, list: if isSignedIn();
-      // CRITICAL: Cannot implement owner-only writes. The 'Visitor' entity is missing an 'ownerId' or 'creatorId' field.
-      allow create: if true; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow create, update: if isSignedIn();
+      allow delete: if false; // Deletion can be restricted as needed.
     }
     
     /**
