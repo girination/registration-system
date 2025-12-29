@@ -71,6 +71,8 @@ export default function ProfilePage() {
       });
     } else if(user) {
         form.reset({
+            firstName: '',
+            lastName: '',
             email: user.email || '',
             role: 'Gate Guard'
         })
