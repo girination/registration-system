@@ -1,4 +1,4 @@
-import { genkit } from '@genkit-ai/next';
+import { genkit } from 'genkit/next';
 import '@/ai/flows/scan-visitor-id';
 
-export const POST = genkit();
+export const { POST } = genkit();
