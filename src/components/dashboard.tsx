@@ -48,6 +48,7 @@ import {
   Loader2,
   Users,
   Trash2,
+  Fingerprint,
 } from 'lucide-react';
 import { FortressGateIcon } from '@/components/icons';
 import VisitorRegistrationForm from '@/components/visitor-registration-form';
@@ -67,6 +68,7 @@ type Visitor = {
   visitingPersonnelId: string;
   timeIn: string;
   status: 'On-site' | 'Overstaying' | 'Checked-out';
+  idNumber?: string;
 };
 
 type Personnel = {
@@ -208,6 +210,12 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
               <CardContent className="grid gap-2 text-sm p-4 pt-0">
+                {visitor.idNumber && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Fingerprint className="h-4 w-4 flex-shrink-0" />
+                    <span>ID: <span className="font-medium text-foreground">{visitor.idNumber}</span></span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <User className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate">
