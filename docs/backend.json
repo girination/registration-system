@@ -1,0 +1,869 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a system user, including admins, gate guards, and internal personnel.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "roleId": {
+          "type": "string",
+          "description": "Reference to Role. (Relationship: User 1:N Role)"
+        },
+        "username": {
+          "type": "string",
+          "description": "Username for login."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the user."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the user account is active."
+        }
+      },
+      "required": [
+        "id",
+        "roleId",
+        "username",
+        "email",
+        "firstName",
+        "lastName"
+      ]
+    },
+    "Role": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Role",
+      "type": "object",
+      "description": "Defines the roles within the system (e.g., Gate Guard, Admin).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the role."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the role (e.g., 'Gate Guard')."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the role and its permissions."
+        },
+        "permissions": {
+          "type": "array",
+          "description": "List of permission identifiers associated with this role.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description"
+      ]
+    },
+    "Facility": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Facility",
+      "type": "object",
+      "description": "Represents a physical facility (e.g., Military Camp Alpha).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the facility."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the facility."
+        },
+        "address": {
+          "type": "string",
+          "description": "Address of the facility."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Block": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Block",
+      "type": "object",
+      "description": "Represents a block or building within a facility (e.g., Upper Block).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the block."
+        },
+        "facilityId": {
+          "type": "string",
+          "description": "Reference to Facility. (Relationship: Facility 1:N Block)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the block."
+        }
+      },
+      "required": [
+        "id",
+        "facilityId",
+        "name"
+      ]
+    },
+    "Room": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Room",
+      "type": "object",
+      "description": "Represents a room within a block (e.g., Room 12).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the room."
+        },
+        "blockId": {
+          "type": "string",
+          "description": "Reference to Block. (Relationship: Block 1:N Room)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name or number of the room."
+        },
+        "isRestricted": {
+          "type": "boolean",
+          "description": "Indicates if the room has restricted access."
+        }
+      },
+      "required": [
+        "id",
+        "blockId",
+        "name"
+      ]
+    },
+    "Personnel": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Personnel",
+      "type": "object",
+      "description": "Represents internal personnel being visited.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the personnel."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Personnel)"
+        },
+        "rank": {
+          "type": "string",
+          "description": "Rank or title of the personnel."
+        },
+        "personnelId": {
+          "type": "string",
+          "description": "Personnel/Force/Student ID."
+        },
+        "department": {
+          "type": "string",
+          "description": "Department or unit the personnel belongs to."
+        },
+        "assignedFacilityId": {
+          "type": "string",
+          "description": "Reference to Facility. (Relationship: Facility 1:N Personnel)"
+        },
+        "assignedBlockId": {
+          "type": "string",
+          "description": "Reference to Block. (Relationship: Block 1:N Personnel)"
+        },
+        "assignedRoomId": {
+          "type": "string",
+          "description": "Reference to Room. (Relationship: Room 1:N Personnel)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the personnel (e.g., Active, On Leave)."
+        },
+        "visitPolicy": {
+          "type": "string",
+          "description": "Visit policy for the personnel (e.g., open, approval-required)."
+        },
+        "visibilityLevel": {
+          "type": "string",
+          "description": "Visibility level of the personnel record (e.g., public, restricted)."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "rank",
+        "personnelId",
+        "department",
+        "assignedFacilityId",
+        "assignedBlockId",
+        "assignedRoomId",
+        "status",
+        "visitPolicy",
+        "visibilityLevel"
+      ]
+    },
+    "Visitor": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Visitor",
+      "type": "object",
+      "description": "Represents a visitor.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the visitor."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the visitor."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the visitor."
+        },
+        "company": {
+          "type": "string",
+          "description": "Company of the visitor."
+        },
+        "idNumber": {
+          "type": "string",
+          "description": "ID number of the visitor."
+        },
+        "photoUrl": {
+          "type": "string",
+          "description": "URL to the visitor's photo."
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName"
+      ]
+    },
+    "Visit": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Visit",
+      "type": "object",
+      "description": "Represents a visit record.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the visit."
+        },
+        "visitorId": {
+          "type": "string",
+          "description": "Reference to Visitor. (Relationship: Visitor 1:N Visit)"
+        },
+        "personnelId": {
+          "type": "string",
+          "description": "Reference to Personnel. (Relationship: Personnel 1:N Visit)"
+        },
+        "roomId": {
+          "type": "string",
+          "description": "Reference to Room. (Relationship: Room 1:N Visit)"
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Purpose of the visit."
+        },
+        "duration": {
+          "type": "number",
+          "description": "Duration of the visit in minutes."
+        },
+        "vehicleDetails": {
+          "type": "string",
+          "description": "Details of the visitor's vehicle (optional)."
+        },
+        "approvalId": {
+          "type": "string",
+          "description": "Reference to Approval. (Relationship: Approval 1:N Visit)"
+        },
+        "qrCode": {
+          "type": "string",
+          "description": "QR code associated with the visit."
+        },
+        "checkInTime": {
+          "type": "string",
+          "description": "Time the visitor checked in.",
+          "format": "date-time"
+        },
+        "checkOutTime": {
+          "type": "string",
+          "description": "Time the visitor checked out.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "visitorId",
+        "personnelId",
+        "roomId",
+        "purpose",
+        "duration"
+      ]
+    },
+    "Approval": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Approval",
+      "type": "object",
+      "description": "Represents an approval for a visit.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the approval."
+        },
+        "personnelId": {
+          "type": "string",
+          "description": "Reference to Personnel. (Relationship: Personnel 1:N Approval)"
+        },
+        "approvedByUserId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Approval)"
+        },
+        "approvalTime": {
+          "type": "string",
+          "description": "Time the visit was approved.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the approval (e.g., Approved, Rejected)."
+        }
+      },
+      "required": [
+        "id",
+        "personnelId",
+        "approvedByUserId",
+        "approvalTime",
+        "status"
+      ]
+    },
+    "CheckIn": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CheckIn",
+      "type": "object",
+      "description": "Represents a check-in record.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the check-in record."
+        },
+        "visitId": {
+          "type": "string",
+          "description": "Reference to Visit. (Relationship: Visit 1:N CheckIn)"
+        },
+        "checkInTime": {
+          "type": "string",
+          "description": "Time the visitor checked in.",
+          "format": "date-time"
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Reference to Device. (Relationship: Device 1:N CheckIn)"
+        }
+      },
+      "required": [
+        "id",
+        "visitId",
+        "checkInTime"
+      ]
+    },
+    "CheckOut": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CheckOut",
+      "type": "object",
+      "description": "Represents a check-out record.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the check-out record."
+        },
+        "visitId": {
+          "type": "string",
+          "description": "Reference to Visit. (Relationship: Visit 1:N CheckOut)"
+        },
+        "checkOutTime": {
+          "type": "string",
+          "description": "Time the visitor checked out.",
+          "format": "date-time"
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Reference to Device. (Relationship: Device 1:N CheckOut)"
+        }
+      },
+      "required": [
+        "id",
+        "visitId",
+        "checkOutTime"
+      ]
+    },
+    "Blacklist": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Blacklist",
+      "type": "object",
+      "description": "Represents a blacklisted visitor.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the blacklist record."
+        },
+        "visitorId": {
+          "type": "string",
+          "description": "Reference to Visitor. (Relationship: Visitor 1:N Blacklist)"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Reason for blacklisting the visitor."
+        },
+        "blacklistedByUserId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Blacklist)"
+        },
+        "blacklistedTime": {
+          "type": "string",
+          "description": "Time the visitor was blacklisted.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "visitorId",
+        "reason",
+        "blacklistedByUserId",
+        "blacklistedTime"
+      ]
+    },
+    "Device": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Device",
+      "type": "object",
+      "description": "Represents a device used for check-in/check-out.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the device."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the device."
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Unique Device ID."
+        },
+        "facilityId": {
+          "type": "string",
+          "description": "Reference to Facility. (Relationship: Facility 1:N Device)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "deviceId",
+        "facilityId"
+      ]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a notification.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the notification."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Notification)"
+        },
+        "message": {
+          "type": "string",
+          "description": "Message of the notification."
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of the notification (e.g., SMS, Email, Push)."
+        },
+        "sentTime": {
+          "type": "string",
+          "description": "Time the notification was sent.",
+          "format": "date-time"
+        },
+        "visitId": {
+          "type": "string",
+          "description": "Reference to Visit. (Relationship: Visit 1:N Notification)"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "message",
+        "type",
+        "sentTime"
+      ]
+    },
+    "AuditLog": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AuditLog",
+      "type": "object",
+      "description": "Represents an audit log entry.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the audit log entry."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N AuditLog)"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Timestamp of the audit log entry.",
+          "format": "date-time"
+        },
+        "action": {
+          "type": "string",
+          "description": "Action performed (e.g., 'Create Visitor', 'Check-in')."
+        },
+        "entityType": {
+          "type": "string",
+          "description": "Type of entity affected (e.g., 'Visitor', 'Visit')."
+        },
+        "entityId": {
+          "type": "string",
+          "description": "ID of the entity affected."
+        },
+        "details": {
+          "type": "string",
+          "description": "Detailed information about the action."
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "timestamp",
+        "action",
+        "entityType",
+        "entityId"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. Uses path-based ownership for private user data. Includes userId as a parameter",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles/{roleId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "Stores role definitions.",
+          "params": [
+            {
+              "name": "roleId",
+              "description": "The unique ID of the role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/facilities/{facilityId}",
+        "definition": {
+          "entityName": "Facility",
+          "schema": {
+            "$ref": "#/backend/entities/Facility"
+          },
+          "description": "Stores facility information. Facility ID is a parameter.",
+          "params": [
+            {
+              "name": "facilityId",
+              "description": "The unique ID of the facility."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/facilities/{facilityId}/blocks/{blockId}",
+        "definition": {
+          "entityName": "Block",
+          "schema": {
+            "$ref": "#/backend/entities/Block"
+          },
+          "description": "Stores block information within a facility. Includes facilityId and blockId as parameters.",
+          "params": [
+            {
+              "name": "facilityId",
+              "description": "The unique ID of the facility."
+            },
+            {
+              "name": "blockId",
+              "description": "The unique ID of the block."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/facilities/{facilityId}/blocks/{blockId}/rooms/{roomId}",
+        "definition": {
+          "entityName": "Room",
+          "schema": {
+            "$ref": "#/backend/entities/Room"
+          },
+          "description": "Stores room information within a block. Includes facilityId, blockId, and roomId as parameters.",
+          "params": [
+            {
+              "name": "facilityId",
+              "description": "The unique ID of the facility."
+            },
+            {
+              "name": "blockId",
+              "description": "The unique ID of the block."
+            },
+            {
+              "name": "roomId",
+              "description": "The unique ID of the room."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/personnel/{personnelId}",
+        "definition": {
+          "entityName": "Personnel",
+          "schema": {
+            "$ref": "#/backend/entities/Personnel"
+          },
+          "description": "Stores personnel information. Personnel ID is a parameter. Includes denormalized facilityId, blockId, and roomId for fast access and authorization independence.",
+          "params": [
+            {
+              "name": "personnelId",
+              "description": "The unique ID of the personnel."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/visitors/{visitorId}",
+        "definition": {
+          "entityName": "Visitor",
+          "schema": {
+            "$ref": "#/backend/entities/Visitor"
+          },
+          "description": "Stores visitor information. Visitor ID is a parameter.",
+          "params": [
+            {
+              "name": "visitorId",
+              "description": "The unique ID of the visitor."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/visitors/{visitorId}/visits/{visitId}",
+        "definition": {
+          "entityName": "Visit",
+          "schema": {
+            "$ref": "#/backend/entities/Visit"
+          },
+          "description": "Stores visit information associated with a visitor. Denormalizes `personnelId`, `roomId` and relevant facility/block info from personnel. Includes visitorId and visitId as parameters.  This denormalization supports QAPs and simplifies rules.",
+          "params": [
+            {
+              "name": "visitorId",
+              "description": "The unique ID of the visitor."
+            },
+            {
+              "name": "visitId",
+              "description": "The unique ID of the visit."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/personnel/{personnelId}/visits/{visitId}",
+        "definition": {
+          "entityName": "Visit",
+          "schema": {
+            "$ref": "#/backend/entities/Visit"
+          },
+          "description": "Stores visit information associated with personnel. Denormalizes `visitorId`, and other relevant info from visitors. Includes personnelId and visitId as parameters. This path provides an alternative query based on `personnelId` for listing visits. This denormalization supports QAPs and simplifies rules.",
+          "params": [
+            {
+              "name": "personnelId",
+              "description": "The unique ID of the personnel."
+            },
+            {
+              "name": "visitId",
+              "description": "The unique ID of the visit."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/approvals/{approvalId}",
+        "definition": {
+          "entityName": "Approval",
+          "schema": {
+            "$ref": "#/backend/entities/Approval"
+          },
+          "description": "Stores approval information.  Approval ID is a parameter.",
+          "params": [
+            {
+              "name": "approvalId",
+              "description": "The unique ID of the approval."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/visits/{visitId}/checkIns/{checkInId}",
+        "definition": {
+          "entityName": "CheckIn",
+          "schema": {
+            "$ref": "#/backend/entities/CheckIn"
+          },
+          "description": "Stores check-in records for a specific visit.  Includes visitId and checkInId as parameters.",
+          "params": [
+            {
+              "name": "visitId",
+              "description": "The unique ID of the visit."
+            },
+            {
+              "name": "checkInId",
+              "description": "The unique ID of the check-in record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/visits/{visitId}/checkOuts/{checkOutId}",
+        "definition": {
+          "entityName": "CheckOut",
+          "schema": {
+            "$ref": "#/backend/entities/CheckOut"
+          },
+          "description": "Stores check-out records for a specific visit.  Includes visitId and checkOutId as parameters.",
+          "params": [
+            {
+              "name": "visitId",
+              "description": "The unique ID of the visit."
+            },
+            {
+              "name": "checkOutId",
+              "description": "The unique ID of the check-out record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/blacklists/{blacklistId}",
+        "definition": {
+          "entityName": "Blacklist",
+          "schema": {
+            "$ref": "#/backend/entities/Blacklist"
+          },
+          "description": "Stores blacklist records.  Blacklist ID is a parameter.",
+          "params": [
+            {
+              "name": "blacklistId",
+              "description": "The unique ID of the blacklist record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/devices/{deviceId}",
+        "definition": {
+          "entityName": "Device",
+          "schema": {
+            "$ref": "#/backend/entities/Device"
+          },
+          "description": "Stores device information.  Device ID is a parameter.",
+          "params": [
+            {
+              "name": "deviceId",
+              "description": "The unique ID of the device."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Stores notifications for a specific user.  Includes userId and notificationId as parameters.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user."
+            },
+            {
+              "name": "notificationId",
+              "description": "The unique ID of the notification."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/auditLogs/{auditLogId}",
+        "definition": {
+          "entityName": "AuditLog",
+          "schema": {
+            "$ref": "#/backend/entities/AuditLog"
+          },
+          "description": "Stores audit log entries.  AuditLog ID is a parameter.",
+          "params": [
+            {
+              "name": "auditLogId",
+              "description": "The unique ID of the audit log entry."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore structure prioritizes security and scalability for the FortressGate application, focusing on authorization independence and clear access patterns. It leverages path-based ownership for user-related data and membership maps for collaborative data. Denormalization is used extensively to avoid `get()` calls in security rules, ensuring atomic operations.  Structural segregation ensures that each collection has a homogeneous security posture, simplifying rule definition and enforcement. Explicit state modeling with dedicated status fields enhances data clarity. The design explicitly addresses QAPs by ensuring secure list operations through structural segregation and clearly defined ownership.  For example, `visits` exist as a subcollection of both `visitors` and `personnel` which is key for scalable queries and access controls."
+  }
+}

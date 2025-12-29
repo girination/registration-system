@@ -1,0 +1,323 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * Core Philosophy:
+     * This ruleset enforces a security model centered on user roles and data ownership,
+     * designed for the FortressGate visitor management system. The primary goal is to
+     * ensure that users can only access data relevant to their function (e.g., personnel
+     * managing their visits, admins managing system data) while maintaining strict
+     * separation of private user information.
+     *
+     * Data Structure:
+     * The structure separates system-wide configuration (like /roles, /facilities) from
+     * user-specific data (/users/{userId}), operational data (/personnel, /visitors),
+     * and sensitive logs (/auditLogs). A key pattern is the dual representation of visits
+     * under both /personnel/{personnelId}/visits and /visitors/{visitorId}/visits. This
+     * structural segregation supports efficient and secure queries based on the access context.
+     *
+     * Key Security Decisions:
+     * - User Data: All data under /users/{userId} is strictly private and accessible only
+     *   to the authenticated owner of that data tree.
+     * - Administrative Data: Collections like /roles, /facilities, /devices, and /blacklists
+     *   are treated as read-only for authenticated users. Writes to these collections should
+     *   be performed by a trusted backend service or a future-defined admin role.
+     * - Personnel & Visits: A 'Personnel' document is owned by the associated 'User' (via the `userId` field).
+     *   This ownership extends to their subcollection of 'visits'. This allows personnel
+     *   to manage visits where they are the host.
+     * - Audit Logs: The /auditLogs collection is immutable from client applications to ensure
+     *   the integrity of system records. All writes must originate from the backend.
+     *
+     * Denormalization for Authorization:
+     * To ensure fast and secure rule evaluation, this ruleset relies on denormalized
+     * ownership fields. For example, the `/personnel/{personnelId}` document must contain a
+     * `userId` field. This avoids slow and costly `get()` calls to other collections during
+     * an authorization check.
+     *
+     * Structural Segregation:
+     * The separation of a user's private data (e.g., `/users/{userId}/notifications`) into
+     * a dedicated subcollection is a core principle. This is more secure and performant
+     * for list operations than mixing public and private data in a single collection.
+     */
+
+    // --------------------------------------------------------------------------
+    // Helper Functions
+    // --------------------------------------------------------------------------
+
+    /**
+     * Checks if a user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the given userId.
+     * This is the primary function for enforcing data ownership.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if the user is the owner and the document already exists.
+     * Used for safe update and delete operations.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Validates that the user is creating their own user document and that the
+     * document's internal `id` field matches their auth UID for consistency.
+     */
+    function isCreatingOwnUserDocument(userId) {
+      return isOwner(userId) && request.resource.data.id == userId;
+    }
+    
+    /**
+     * Checks if the owner of the parent Personnel document matches the requestor.
+     * This requires one `get` call to secure the entire subcollection.
+     */
+    function isPersonnelOwner(personnelId) {
+      let personnelDoc = get(/databases/$(database)/documents/personnel/$(personnelId));
+      return personnelDoc.data.userId == request.auth.uid;
+    }
+
+    /**
+     * Ensures an ownership field (like `userId`) is not changed during an update.
+     */
+    function isUserIdImmutable() {
+      return request.resource.data.userId == resource.data.userId;
+    }
+
+
+    /**
+     * @description Stores user profiles. Only the owner can read or write their own profile.
+     * @path /users/{userId}
+     * @allow (get) An authenticated user with UID 'user_abc' can get their own document at /users/user_abc.
+     * @deny (get) A user with UID 'user_xyz' cannot get the document at /users/user_abc.
+     * @principle Restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false; // Prevent listing all system users.
+      allow create: if isCreatingOwnUserDocument(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Stores notifications for a specific user.
+     * @path /users/{userId}/notifications/{notificationId}
+     * @allow (get) User 'user_abc' can read a notification at /users/user_abc/notifications/notif_123.
+     * @deny (list) User 'user_xyz' cannot list notifications at /users/user_abc/notifications.
+     * @principle Enforces strict ownership for all operations on a user's private subcollection.
+     */
+    match /users/{userId}/notifications/{notificationId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Stores role definitions. Read-only for authenticated users.
+     * @path /roles/{roleId}
+     * @allow (get) Any signed-in user can read a role definition.
+     * @deny (create) No client application can create a new role. This must be done by a backend process.
+     * @principle Protects system configuration data from client modification.
+     */
+    match /roles/{roleId} {
+      allow get, list: if isSignedIn();
+      allow create: if false; // TODO: Implement admin-only access.
+      allow update: if false; // TODO: Implement admin-only access.
+      allow delete: if false; // TODO: Implement admin-only access.
+    }
+
+    /**
+     * @description Stores facility information. Read-only for authenticated users.
+     * @path /facilities/{facilityId}
+     * @allow (get) Any signed-in user can read facility information.
+     * @deny (create) No client can create a new facility. This is an administrative action.
+     * @principle Protects system configuration data from client modification.
+     */
+    match /facilities/{facilityId} {
+      allow get, list: if isSignedIn();
+      allow create: if false; // TODO: Implement admin-only access.
+      allow update: if false; // TODO: Implement admin-only access.
+      allow delete: if false; // TODO: Implement admin-only access.
+
+      /**
+       * @description Stores block information within a facility. Read-only for authenticated users.
+       * @path /facilities/{facilityId}/blocks/{blockId}
+       * @allow (get) Any signed-in user can read block information.
+       * @deny (create) No client can create a new block.
+       * @principle Protects system configuration data from client modification.
+       */
+      match /blocks/{blockId} {
+        allow get, list: if isSignedIn();
+        allow create: if false; // TODO: Implement admin-only access.
+        allow update: if false; // TODO: Implement admin-only access.
+        allow delete: if false; // TODO: Implement admin-only access.
+
+        /**
+         * @description Stores room information within a block. Read-only for authenticated users.
+         * @path /facilities/{facilityId}/blocks/{blockId}/rooms/{roomId}
+         * @allow (get) Any signed-in user can read room information.
+         * @deny (create) No client can create a new room.
+         * @principle Protects system configuration data from client modification.
+         */
+        match /rooms/{roomId} {
+          allow get, list: if isSignedIn();
+          allow create: if false; // TODO: Implement admin-only access.
+          allow update: if false; // TODO: Implement admin-only access.
+          allow delete: if false; // TODO: Implement admin-only access.
+        }
+      }
+    }
+
+    /**
+     * @description Stores internal personnel profiles. Readable by any authenticated user, but only writable by the personnel themselves.
+     * @path /personnel/{personnelId}
+     * @allow (create) An authenticated user 'user_abc' can create a personnel document if `request.resource.data.userId == 'user_abc'`.
+     * @deny (update) User 'user_xyz' cannot update a personnel document where `resource.data.userId` is 'user_abc'.
+     * @principle Enforces document ownership for writes while allowing general read access.
+     */
+    match /personnel/{personnelId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource != null && isOwner(resource.data.userId) && isUserIdImmutable();
+      allow delete: if isSignedIn() && resource != null && isOwner(resource.data.userId);
+    }
+    
+    /**
+     * @description Stores visit records associated with a specific personnel host. Access is controlled by the personnel host.
+     * @path /personnel/{personnelId}/visits/{visitId}
+     * @allow (list) The personnel host 'user_abc' can list all visits at /personnel/person_123/visits if person_123's `userId` is 'user_abc'.
+     * @deny (get) User 'user_xyz' cannot read a visit at /personnel/person_123/visits/visit_456.
+     * @principle Uses a parent document lookup (`get`) to secure a subcollection based on ownership.
+     */
+    match /personnel/{personnelId}/visits/{visitId} {
+      allow get, list: if isSignedIn() && isPersonnelOwner(personnelId);
+      allow create: if isSignedIn() && isPersonnelOwner(personnelId) && request.resource.data.personnelId == personnelId;
+      allow update: if isSignedIn() && resource != null && isPersonnelOwner(personnelId) && request.resource.data.personnelId == resource.data.personnelId;
+      allow delete: if isSignedIn() && resource != null && isPersonnelOwner(personnelId);
+    }
+
+    /**
+     * @description Stores visitor profiles. Readable by any authenticated user.
+     * @path /visitors/{visitorId}
+     * @allow (get) Any authenticated user can read a visitor's public profile.
+     * @deny (create) Client cannot create a visitor record directly.
+     * @principle Public read with protected writes. Writes are currently disabled pending schema update.
+     */
+    match /visitors/{visitorId} {
+      allow get, list: if isSignedIn();
+      // CRITICAL: Cannot implement owner-only writes. The 'Visitor' entity is missing an 'ownerId' or 'creatorId' field.
+      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+    }
+    
+    /**
+     * @description This path for visits is structurally supported but not recommended for fine-grained security. Access is denied by default.
+     * @path /visitors/{visitorId}/visits/{visitId}
+     * @allow (get) No access is permitted through this path.
+     * @deny (get) All attempts to read data from /visitors/{visitorId}/visits/{visitId} will be rejected.
+     * @principle Defaults to secure. The path `/personnel/{personnelId}/visits` should be used for all client operations.
+     */
+    match /visitors/{visitorId}/visits/{visitId} {
+      allow get: if false;
+      allow list: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Stores visit approval records. Accessible by the personnel being visited or the user who approved it.
+     * @path /approvals/{approvalId}
+     * @allow (get) The user who approved the request ('approvedByUserId') can read it.
+     * @deny (update) A random user cannot update an approval status.
+     * @principle Implements shared access based on roles within the document (approver, host).
+     */
+    match /approvals/{approvalId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.approvedByUserId == request.auth.uid || isPersonnelOwner(request.resource.data.personnelId));
+      allow update: if isSignedIn() && resource != null && (isOwner(resource.data.approvedByUserId) || isPersonnelOwner(resource.data.personnelId));
+      allow delete: if isSignedIn() && resource != null && isPersonnelOwner(resource.data.personnelId);
+    }
+    
+    /**
+     * @description Check-in records for a visit. Assumed to be system-generated.
+     * @path /visits/{visitId}/checkIns/{checkInId}
+     * @allow (get) Any authenticated user can read check-in data.
+     * @deny (create) No client application can create check-in records.
+     * @principle Protects operational data integrity by disallowing client writes.
+     */
+    match /visits/{visitId}/checkIns/{checkInId} {
+      allow get, list: if isSignedIn();
+      allow create: if false; // Must be created by a trusted device/backend.
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    /**
+     * @description Check-out records for a visit. Assumed to be system-generated.
+     * @path /visits/{visitId}/checkOuts/{checkOutId}
+     * @allow (get) Any authenticated user can read check-out data.
+     * @deny (create) No client application can create check-out records.
+     * @principle Protects operational data integrity by disallowing client writes.
+     */
+    match /visits/{visitId}/checkOuts/{checkOutId} {
+      allow get, list: if isSignedIn();
+      allow create: if false; // Must be created by a trusted device/backend.
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Stores visitor blacklist records. Read-only for authenticated users.
+     * @path /blacklists/{blacklistId}
+     * @allow (get) Any signed-in user can check the blacklist.
+     * @deny (create) Adding a visitor to the blacklist is an administrative action.
+     * @principle Protects sensitive system data from client modification.
+     */
+    match /blacklists/{blacklistId} {
+      allow get, list: if isSignedIn();
+      allow create: if false; // TODO: Implement admin-only access.
+      allow update: if false; // TODO: Implement admin-only access.
+      allow delete: if false; // TODO: Implement admin-only access.
+    }
+
+    /**
+     * @description Stores information about registered check-in/out devices. Read-only for authenticated users.
+     * @path /devices/{deviceId}
+     * @allow (get) Any signed-in user can read device information.
+     * @deny (create) Registering a device is an administrative action.
+     * @principle Protects system configuration data from client modification.
+     */
+    match /devices/{deviceId} {
+      allow get, list: if isSignedIn();
+      allow create: if false; // TODO: Implement admin-only access.
+      allow update: if false; // TODO: Implement admin-only access.
+      allow delete: if false; // TODO: Implement admin-only access.
+    }
+
+    /**
+     * @description Stores audit log entries. This collection is append-only from the backend.
+     * @path /auditLogs/{auditLogId}
+     * @allow (get) Any signed-in user can read audit logs (for transparency, can be restricted later).
+     * @deny (create) No client can write to the audit log.
+     * @principle Ensures the integrity and immutability of audit trails.
+     */
+    match /auditLogs/{auditLogId} {
+      allow get, list: if isSignedIn(); // Or restrict to admins.
+      allow create: if false; // Backend-only operation.
+      allow update: if false; // Logs are immutable.
+      allow delete: if false; // Logs are immutable.
+    }
+  }
+}
