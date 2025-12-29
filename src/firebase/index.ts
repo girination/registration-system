@@ -3,7 +3,7 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore, initializeFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
@@ -33,10 +33,18 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  // The `initializeFirestore` function is used here to configure experimental settings.
+  // Using `getFirestore()` directly does not allow for these configurations.
+  // The `experimentalForceLongPolling` setting is crucial in environments where
+  // WebSockets may be restricted, ensuring a reliable connection via long-polling.
+  const firestore = initializeFirestore(firebaseApp, {
+    experimentalForceLongPolling: true,
+  });
+
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    firestore: firestore
   };
 }
 
