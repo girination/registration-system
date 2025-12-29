@@ -197,9 +197,8 @@ service cloud.firestore {
      * @principle Allows authenticated users to manage visitor records.
      */
     match /visitors/{visitorId} {
-      allow read, update: if isSignedIn();
-      allow create: if isSignedIn();
-      allow delete: if false; // Deletion can be restricted as needed.
+      allow read, update, create: if isSignedIn();
+      allow delete: if isSignedIn();
     }
     
     /**
@@ -288,5 +287,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

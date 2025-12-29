@@ -28,6 +28,16 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   UserPlus,
   QrCode,
   Search,
@@ -37,11 +47,12 @@ import {
   User,
   Loader2,
   Users,
+  Trash2,
 } from 'lucide-react';
 import { FortressGateIcon } from '@/components/icons';
 import VisitorRegistrationForm from '@/components/visitor-registration-form';
 import { PlaceHolderImages, type ImagePlaceholder } from '@/lib/placeholder-images';
-import { useFirestore, useCollection, useMemoFirebase, useAuth, useUser, updateDocumentNonBlocking } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useAuth, useUser, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
@@ -71,6 +82,7 @@ type Personnel = {
 export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<Visitor | null>(null);
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const auth = useAuth();
@@ -117,6 +129,17 @@ export default function Dashboard() {
     })
   };
   
+  const handleDelete = (visitorId: string) => {
+    if (!firestore) return;
+    const visitorRef = doc(firestore, 'visitors', visitorId);
+    deleteDocumentNonBlocking(visitorRef);
+    toast({
+        title: "Visit Deleted",
+        description: "The visitor record has been permanently removed."
+    });
+    setShowDeleteConfirm(null);
+  };
+
   const { currentVisitors, pastVisitors } = useMemo(() => {
     if (!allVisitorsData) return { currentVisitors: [], pastVisitors: [] };
     const filtered = allVisitorsData.filter(
@@ -203,8 +226,8 @@ export default function Dashboard() {
                   <span>Checked in at: {visitor.timeIn}</span>
                 </div>
               </CardContent>
-              {visitor.status !== 'Checked-out' && (
-                <CardFooter className="mt-auto border-t bg-muted/50 p-2 dark:bg-card">
+              <CardFooter className="mt-auto border-t bg-muted/50 p-2 dark:bg-card">
+              {visitor.status !== 'Checked-out' ? (
                   <Button
                     className="w-full"
                     variant="outline"
@@ -212,8 +235,17 @@ export default function Dashboard() {
                   >
                     Check Out
                   </Button>
-                </CardFooter>
+              ) : (
+                <Button
+                    className="w-full"
+                    variant="destructive"
+                    onClick={() => setShowDeleteConfirm(visitor)}
+                >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Visit
+                </Button>
               )}
+              </CardFooter>
             </Card>
           );
         })}
@@ -325,6 +357,22 @@ export default function Dashboard() {
           isLoadingPersonnel={isLoadingPersonnel}
         />
       </main>
+        <AlertDialog open={!!showDeleteConfirm} onOpenChange={() => setShowDeleteConfirm(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure you want to delete this visit?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete the visit record for <span className="font-semibold">{showDeleteConfirm?.name}</span>.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleDelete(showDeleteConfirm!.id)}>
+                        Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </div>
   );
 }
