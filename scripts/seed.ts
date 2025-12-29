@@ -19,10 +19,9 @@ export type Personnel = {
 export type Visitor = {
   id: string;
   name: string;
-  photoId: string;
   visitingPersonnelId: string;
   timeIn: string;
-  status: 'On-site' | 'Overstaying';
+  status: 'On-site' | 'Overstaying' | 'Checked-out';
 };
 
 const personnelData: Personnel[] = [
@@ -33,9 +32,10 @@ const personnelData: Personnel[] = [
 ];
 
 const currentVisitorsData: Visitor[] = [
-  { id: 'v1', name: 'John Doe', photoId: 'visitor-1', visitingPersonnelId: 'p1', timeIn: '14:00', status: 'On-site' },
-  { id: 'v2', name: 'Jane Smith', photoId: 'visitor-2', visitingPersonnelId: 'p2', timeIn: '13:30', status: 'On-site' },
-  { id: 'v3', name: 'Peter Jones', photoId: 'visitor-3', visitingPersonnelId: 'p1', timeIn: '10:00', status: 'Overstaying' },
+  { id: 'v1', name: 'John Doe', visitingPersonnelId: 'p1', timeIn: '14:00', status: 'On-site' },
+  { id: 'v2', name: 'Jane Smith', visitingPersonnelId: 'p2', timeIn: '13:30', status: 'On-site' },
+  { id: 'v3', name: 'Peter Jones', visitingPersonnelId: 'p1', timeIn: '10:00', status: 'Overstaying' },
+  { id: 'v4', name: 'Mary Poppins', visitingPersonnelId: 'p4', timeIn: '09:00', status: 'Checked-out' },
 ];
 
 async function seedFirestore() {

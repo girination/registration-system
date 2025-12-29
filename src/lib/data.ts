@@ -16,8 +16,7 @@ export type Personnel = {
 export type Visitor = {
   id: string;
   name: string;
-  photoId: string;
   visitingPersonnelId: string;
   timeIn: string;
-  status: 'On-site' | 'Overstaying';
+  status: 'On-site' | 'Overstaying' | 'Checked-out';
 };

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Card,
@@ -22,6 +21,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs"
 import {
   UserPlus,
   QrCode,
@@ -48,7 +53,6 @@ const getImage = (id: string): ImagePlaceholder | undefined => PlaceHolderImages
 type Visitor = {
   id: string;
   name: string;
-  photoId: string;
   visitingPersonnelId: string;
   timeIn: string;
   status: 'On-site' | 'Overstaying' | 'Checked-out';
@@ -84,7 +88,7 @@ export default function Dashboard() {
   const { data: personnelData, isLoading: isLoadingPersonnel } = useCollection<Personnel>(personnelQuery);
 
   const visitorsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'visitors') : null, [firestore]);
-  const { data: currentVisitorsData, isLoading: isLoadingVisitors } = useCollection<Visitor>(visitorsQuery);
+  const { data: allVisitorsData, isLoading: isLoadingVisitors } = useCollection<Visitor>(visitorsQuery);
 
   const getPersonnelById = (id: string): Personnel | undefined =>
     personnelData?.find((p) => p.id === id);
@@ -112,17 +116,21 @@ export default function Dashboard() {
       description: `${visitorName} has been successfully checked out.`
     })
   };
-
-  const filteredVisitors = useMemo(() => {
-    if (!currentVisitorsData) return [];
-    return currentVisitorsData.filter(
+  
+  const { currentVisitors, pastVisitors } = useMemo(() => {
+    if (!allVisitorsData) return { currentVisitors: [], pastVisitors: [] };
+    const filtered = allVisitorsData.filter(
       (visitor) =>
-        (visitor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        visitor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         getPersonnelById(visitor.visitingPersonnelId)?.name
           .toLowerCase()
-          .includes(searchQuery.toLowerCase())) && visitor.status !== 'Checked-out'
-    )
-  }, [currentVisitorsData, searchQuery, personnelData]);
+          .includes(searchQuery.toLowerCase())
+    );
+    return {
+      currentVisitors: filtered.filter(v => v.status !== 'Checked-out'),
+      pastVisitors: filtered.filter(v => v.status === 'Checked-out')
+    }
+  }, [allVisitorsData, searchQuery, personnelData]);
   
   const guardAvatar = getImage('guard-avatar');
 
@@ -133,6 +141,85 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const renderVisitorList = (visitors: Visitor[]) => {
+    if (isLoadingVisitors || isLoadingPersonnel) {
+      return (
+        <div className="flex justify-center items-center h-48">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
+    if (visitors.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-md border-2 border-dashed p-12 text-center">
+            <p className="text-lg font-medium">No visitors found</p>
+            <p className="text-sm text-muted-foreground">Try adjusting your search or register a new visitor.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {visitors.map((visitor) => {
+          const personnel = getPersonnelById(visitor.visitingPersonnelId);
+          return (
+            <Card key={visitor.id} className="flex flex-col overflow-hidden">
+              <CardHeader className="flex flex-row items-center gap-4 p-4">
+                 <Avatar className="h-16 w-16">
+                  <AvatarFallback>{visitor.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="grid gap-1">
+                  <p className="text-lg font-semibold">{visitor.name}</p>
+                  <Badge
+                    variant={
+                      visitor.status === 'Overstaying'
+                        ? 'destructive'
+                        : visitor.status === 'Checked-out'
+                        ? 'secondary'
+                        : 'default'
+                    }
+                    className="w-fit"
+                  >
+                    {visitor.status}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-2 text-sm p-4 pt-0">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <User className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">
+                    Visiting:{" "}
+                    <span className="font-medium text-foreground">{personnel?.name}</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Building className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">
+                    {personnel?.block}, {personnel?.room}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-4 w-4 flex-shrink-0" />
+                  <span>Checked in at: {visitor.timeIn}</span>
+                </div>
+              </CardContent>
+              {visitor.status !== 'Checked-out' && (
+                <CardFooter className="mt-auto border-t bg-muted/50 p-2 dark:bg-card">
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    onClick={() => handleCheckOut(visitor.id, visitor.name)}
+                  >
+                    Check Out
+                  </Button>
+                </CardFooter>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
 
 
   return (
@@ -201,95 +288,34 @@ export default function Dashboard() {
         </div>
 
         <Card>
-          <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <CardTitle>Current Visitors ({isLoadingVisitors ? 0 : filteredVisitors.length})</CardTitle>
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Search visitors..."
-                className="pl-8"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+          <CardHeader>
+             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <CardTitle>Visitor Logs</CardTitle>
+                <div className="relative w-full max-w-sm">
+                  <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Search visitors by name..."
+                    className="pl-8"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              </div>
           </CardHeader>
           <CardContent>
-            {isLoadingVisitors || isLoadingPersonnel ? (
-              <div className="flex justify-center items-center h-48">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredVisitors.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredVisitors.map((visitor) => {
-                  const personnel = getPersonnelById(visitor.visitingPersonnelId);
-                  const visitorImage = getImage(visitor.photoId);
-                  return (
-                    <Card key={visitor.id} className="flex flex-col overflow-hidden">
-                      <CardHeader className="flex flex-row items-center gap-4 p-4">
-                        {visitorImage && <Image
-                          src={visitorImage.imageUrl}
-                          alt={visitor.name}
-                          width={80}
-                          height={80}
-                          className="rounded-full border"
-                          data-ai-hint={visitorImage.imageHint}
-                        />}
-                        <div className="grid gap-1">
-                          <p className="text-lg font-semibold">{visitor.name}</p>
-                          <Badge
-                            variant={
-                              visitor.status === 'Overstaying'
-                                ? 'destructive'
-                                : visitor.status === 'Checked-out'
-                                ? 'secondary'
-                                : 'default'
-                            }
-                            className="w-fit"
-                          >
-                            {visitor.status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="grid gap-2 text-sm p-4 pt-0">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <User className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">
-                            Visiting:{" "}
-                            <span className="font-medium text-foreground">{personnel?.name}</span>
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Building className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">
-                            {personnel?.block}, {personnel?.room}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Clock className="h-4 w-4 flex-shrink-0" />
-                          <span>Checked in at: {visitor.timeIn}</span>
-                        </div>
-                      </CardContent>
-                      <CardFooter className="mt-auto border-t bg-muted/50 p-2 dark:bg-card">
-                        <Button
-                          className="w-full"
-                          variant="outline"
-                          onClick={() => handleCheckOut(visitor.id, visitor.name)}
-                          disabled={visitor.status === 'Checked-out'}
-                        >
-                          {visitor.status === 'Checked-out' ? 'Checked Out' : 'Check Out'}
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  );
-                })}
-              </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center rounded-md border-2 border-dashed p-12 text-center">
-                    <p className="text-lg font-medium">No visitors found</p>
-                    <p className="text-sm text-muted-foreground">Try adjusting your search or register a new visitor.</p>
-                </div>
-            )}
+            <Tabs defaultValue="current">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="current">Current Visitors ({currentVisitors.length})</TabsTrigger>
+                <TabsTrigger value="past">Past Visits ({pastVisitors.length})</TabsTrigger>
+              </TabsList>
+              <TabsContent value="current" className="mt-4">
+                {renderVisitorList(currentVisitors)}
+              </TabsContent>
+              <TabsContent value="past" className="mt-4">
+                {renderVisitorList(pastVisitors)}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
         <VisitorRegistrationForm

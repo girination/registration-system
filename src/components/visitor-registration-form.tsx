@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import Image from 'next/image';
 import {
   Dialog,
   DialogContent,
@@ -31,8 +30,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { Loader2, Camera, User, Building } from 'lucide-react';
+import { Loader2, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, addDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp } from 'firebase/firestore';
@@ -52,8 +50,6 @@ type Personnel = {
 const formSchema = z.object({
   fullName: z.string().min(2, 'Full name is required'),
   idNumber: z.string().optional(),
-  address: z.string().optional(),
-  photoUri: z.string().optional(),
   personnelId: z.string({ required_error: 'Please select a person to visit.' }),
   purpose: z.string().min(3, 'Purpose of visit is required.'),
   duration: z.string({ required_error: 'Please select a visit duration.' }),
@@ -73,8 +69,6 @@ export default function VisitorRegistrationForm({
   personnelData,
   isLoadingPersonnel,
 }: VisitorRegistrationFormProps) {
-  const [isScanning, setIsScanning] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
   const firestore = useFirestore();
@@ -84,70 +78,12 @@ export default function VisitorRegistrationForm({
     defaultValues: {
       fullName: '',
       idNumber: '',
-      address: '',
-      photoUri: '',
       purpose: '',
       vehicleDetails: '',
     },
   });
 
   const selectedPersonnel = personnelData?.find(p => p.id === form.watch('personnelId'));
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsScanning(true);
-
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = async () => {
-      try {
-        const idDataUri = reader.result as string;
-        form.setValue('photoUri', idDataUri);
-
-        const response = await fetch('/api/ai', {
-          method: 'POST',
-          body: JSON.stringify({
-            flow: 'scanVisitorIdFlow',
-            input: { idDataUri },
-          }),
-        });
-        
-        const result = await response.json();
-
-        if (response.ok && result.output) {
-          const { name, idNumber, address } = result.output;
-          form.setValue('fullName', name, { shouldValidate: true });
-          form.setValue('idNumber', idNumber);
-          form.setValue('address', address);
-          toast({
-            title: 'Scan Successful',
-            description: 'Visitor details have been extracted.',
-          });
-        } else {
-            throw new Error(result.error || 'Failed to scan ID');
-        }
-      } catch (error) {
-        console.error('Error scanning ID:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Scan Failed',
-          description: 'Could not extract info. Please enter details manually.',
-        });
-      } finally {
-        setIsScanning(false);
-      }
-    };
-    reader.onerror = () => {
-        setIsScanning(false);
-        toast({
-            variant: "destructive",
-            title: "File Error",
-            description: "Could not read the selected file."
-        });
-    }
-  };
   
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!firestore) {
@@ -160,11 +96,9 @@ export default function VisitorRegistrationForm({
     }
     try {
       const visitorsColRef = collection(firestore, 'visitors');
-      // Here you would typically send the data to your backend
       addDocumentNonBlocking(visitorsColRef, {
         name: values.fullName,
         visitingPersonnelId: values.personnelId,
-        photoId: `visitor-${Math.floor(Math.random() * 3) + 1}`,
         timeIn: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
         status: 'On-site',
         createdAt: serverTimestamp(),
@@ -198,58 +132,38 @@ export default function VisitorRegistrationForm({
         <DialogHeader>
           <DialogTitle>Register New Visitor</DialogTitle>
           <DialogDescription>
-            Scan an ID for quick entry or fill in the details manually.
+            Fill in the details for the new visitor.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto p-1 pr-4">
-            <Input type="file" accept="image/*" capture="environment" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-            <Button type="button" className="w-full" onClick={() => fileInputRef.current?.click()} disabled={isScanning}>
-              {isScanning ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scanning ID...</> : <><Camera className="mr-2 h-4 w-4" /> Scan Visitor ID</>}
-            </Button>
             
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Full Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. John Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="idNumber"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>ID Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Auto-filled from scan" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                 <FormField
-                  control={form.control}
-                  name="photoUri"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Photo</FormLabel>
-                       <div className="w-full h-10 flex items-center">
-                         {field.value ? <Image src={field.value} alt="Visitor photo" width={40} height={40} className="rounded-md border" /> : <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center"><User className="h-6 w-6 text-muted-foreground"/></div>}
-                       </div>
-                    </FormItem>
-                  )}
-                />
-            </div>
-
-            <Separator />
+            <FormField
+              control={form.control}
+              name="fullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g. John Doe" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="idNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>ID Number (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 123456789" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <FormField
               control={form.control}
