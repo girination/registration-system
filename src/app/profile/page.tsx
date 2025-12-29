@@ -173,7 +173,7 @@ export default function ProfilePage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input type="email" placeholder="officer@fortressgate.com" {...field} disabled />
+                      <Input type="email" placeholder="officer@fortressgate.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -186,7 +186,7 @@ export default function ProfilePage() {
                   <FormItem>
                     <FormLabel>Role</FormLabel>
                     <FormControl>
-                      <Input placeholder="Gate Guard" {...field} disabled />
+                      <Input placeholder="Gate Guard" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
