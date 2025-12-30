@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { FortressGateIcon } from '@/components/icons';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -62,6 +62,11 @@ export default function RegisterPage() {
     if (!firestore) return;
     setIsSubmitting(true);
     try {
+      if (!auth) {
+        toast({ variant: 'destructive', title: 'Auth Unavailable', description: 'Firebase auth is not configured.' });
+        setIsSubmitting(false);
+        return;
+      }
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const newUser = userCredential.user;
 
@@ -104,6 +109,14 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40">
+      <div className="absolute top-4 left-4">
+        <Link href="/">
+          <Button variant="ghost" className="inline-flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Home
+          </Button>
+        </Link>
+      </div>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
             <div className="flex justify-center items-center mb-4">

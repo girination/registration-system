@@ -11,11 +11,12 @@ export function initializeFirebase() {
   // This prevents build-time errors (like `auth/invalid-api-key`) when env vars are not set.
   if (!firebaseConfig.apiKey) {
     console.warn('Firebase API key (NEXT_PUBLIC_FIREBASE_API_KEY) is not set; skipping Firebase initialization.');
-    // Return lightweight no-op stubs so server-side code and prerenders don't crash.
+    // Returning null for SDKs ensures consumers recognize services are unavailable
+    // (so we don't call auth methods during prerender or without proper config).
     return {
-      firebaseApp: {} as FirebaseApp,
-      auth: {} as any,
-      firestore: {} as any,
+      firebaseApp: null as any,
+      auth: null as any,
+      firestore: null as any,
     };
   }
 

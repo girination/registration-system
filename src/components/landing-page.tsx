@@ -51,7 +51,7 @@ export default function LandingPage() {
               </div>
               <Image
                 data-ai-hint="abstract illustration"
-                src="https://picsum.photos/seed/1/600/400"
+                src="https://images.pexels.com/photos/5952651/pexels-photo-5952651.jpeg"
                 width="600"
                 height="400"
                 alt="Hero"

@@ -77,6 +77,10 @@ export default function PersonnelClient() {
 
   const handleLogout = async () => {
     try {
+      if (!auth) {
+        toast({ variant: "destructive", title: "Logout Failed", description: "Firebase auth is not configured." });
+        return;
+      }
       await signOut(auth);
       router.push('/');
     } catch (error) {
